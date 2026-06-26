@@ -1,0 +1,12 @@
+<svg viewBox="0 0 248 212" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Треугольник на клетчатой бумаге, клетка 1 см — найдите площадь">
+  <rect width="248" height="212" fill="#ffffff"/>
+  <defs>
+    <pattern id="gridT" width="36" height="36" patternUnits="userSpaceOnUse" x="16" y="16">
+      <path d="M36 0H0V36" fill="none" stroke="#c4c4c4" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect x="16" y="16" width="216" height="180" fill="url(#gridT)"/>
+  <rect x="16" y="16" width="216" height="180" fill="none" stroke="#d6d6d6" stroke-width="1"/>
+  <polygon points="52,160 196,160 160,52"
+           fill="#4f46e5" fill-opacity="0.10" stroke="#4f46e5" stroke-width="3" stroke-linejoin="round"/>
+</svg>

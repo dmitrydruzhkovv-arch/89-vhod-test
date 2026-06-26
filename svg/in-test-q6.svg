@@ -1,0 +1,12 @@
+<svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Наклонный квадрат на клетчатой сетке — найдите площадь">
+  <rect width="320" height="320" fill="#ffffff"/>
+  <defs>
+    <pattern id="grid6" width="36" height="36" patternUnits="userSpaceOnUse" x="16" y="16">
+      <path d="M36 0H0V36" fill="none" stroke="#c4c4c4" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect x="16" y="16" width="288" height="288" fill="url(#grid6)"/>
+  <rect x="16" y="16" width="288" height="288" fill="none" stroke="#d6d6d6" stroke-width="1"/>
+  <polygon points="124,268 268,160 160,16 16,124"
+           fill="#4f46e5" fill-opacity="0.10" stroke="#4f46e5" stroke-width="3" stroke-linejoin="round"/>
+</svg>

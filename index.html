@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Входной тест ОГЭ — где ты сейчас</title>
+  <link rel="stylesheet" href="https://dmitrydruzhkovv-arch.github.io/di-brand-kit/brand-kit.css">
+  <style>
+    html { scroll-behavior: smooth; }
+    [hidden] { display: none !important; }
+
+    /* Вспышка ромбов «верно» просвечивает СКВОЗЬ всё (карточку, текст, кнопки)
+       на время анимации: поверх контента + blend-mode screen, клики не ловит. */
+    #lk-fx-ok { z-index: 9999; mix-blend-mode: screen; }
+
+    /* ─── Шапка: прогресс ─── */
+    .hw-header {
+      position: sticky; top: 0; z-index: 20;
+      background: rgba(10, 6, 16, 0.92);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--lk-line); padding: 11px 18px;
+    }
+    .hw-header-inner { max-width: 560px; margin: 0 auto; display: flex; align-items: center; gap: 14px; }
+    .hw-prog-label {
+      font-family: var(--lk-mono); font-size: 12px; font-weight: 700;
+      color: var(--lk-muted); white-space: nowrap; letter-spacing: .08em;
+    }
+
+    /* ─── Карточка задания ─── */
+    .task-card { margin-bottom: 18px; animation: lk-in .35s ease; }
+    .task-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .task-label {
+      font-family: var(--lk-mono); font-size: 12px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase; color: var(--lk-violet);
+    }
+    .task-label .og { color: var(--lk-indigo); }
+
+    /* условие — заметно крупнее и отделено от ответов */
+    .cond {
+      font-size: 21px; line-height: 1.45; font-weight: 700; margin: 0 0 18px;
+      color: var(--lk-ink);
+    }
+    .cond .lk-hl { color: var(--lk-violet); }
+
+    /* картинка-чертёж */
+    .qfig { display: flex; justify-content: center; margin: 0 0 20px; }
+    .qfig img {
+      max-width: 100%; width: 280px; height: auto; border-radius: var(--lk-r-lg);
+      background: #fff; padding: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.35);
+    }
+    .qfig.wide img { width: 100%; max-width: 480px; }
+
+    /* ─── Механика «выбор» (choice) ─── */
+    .opts { display: flex; flex-direction: column; gap: 11px; }
+    .opt {
+      text-align: left; width: 100%; cursor: pointer; display: flex; align-items: center; gap: 14px;
+      background: var(--lk-surface); color: var(--lk-ink);
+      border: 1.5px solid var(--lk-line); border-radius: var(--lk-r-lg);
+      padding: 16px 17px; font-size: 18px; font-weight: 600;
+      transition: transform .12s ease, border-color .2s, box-shadow .2s, background .2s;
+    }
+    .opt:active { transform: scale(.99); }
+    .opt .opt-key {
+      flex: 0 0 30px; width: 30px; height: 30px; border-radius: 9px;
+      display: grid; place-items: center; font-size: 14px; font-weight: 800;
+      font-family: var(--lk-mono); background: rgba(168,85,247,.14); color: var(--lk-violet);
+      border: 1px solid var(--lk-line);
+    }
+    .opt:not(.is-locked):hover { border-color: var(--lk-indigo); }
+    .opt.is-pick { border-color: var(--lk-violet); background: rgba(168,85,247,.14);
+      box-shadow: 0 0 0 1px var(--lk-violet), 0 0 22px rgba(168,85,247,.30); }
+    .opt.is-pick .opt-key { background: var(--lk-violet); color: #fff; }
+    .opt.is-locked:not(.is-pick) { opacity: .5; cursor: default; }
+
+    /* вариант «только буквы» — 4 кнопки A B C D, сетка 2×2 (задание с графиками) */
+    .opts.abcd { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    .opts.abcd .opt { justify-content: center; min-height: 78px; padding: 14px; }
+    .opts.abcd .opt-key { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 11px; font-size: 20px; }
+
+    /* ─── Механика «собери целое» (collect_one) ───
+       Полоса-картинка: пресет (1/2, 1/3) уже лежит, дальше пустой слот до «целого».
+       Выбранная плитка ложится в слот: ровно → снап+глоу, мало → слот виден,
+       много → красный «нахлёст» за линией целого. Целое = 82% дорожки. */
+    .co-wrap { position: relative; margin: 24px 0 6px; }
+    .co-bar {
+      position: relative; height: 64px; border-radius: 14px;
+      background: rgba(255,255,255,.035); border: 1.5px solid var(--lk-line);
+      overflow: hidden; transition: box-shadow .3s, border-color .3s;
+    }
+    .co-bar.is-full {
+      border-color: var(--lk-violet);
+      box-shadow: 0 0 0 1.5px var(--lk-violet), 0 0 28px rgba(168,85,247,.45);
+    }
+    .co-seg {
+      position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
+      font-family: var(--lk-mono); font-size: 14px; font-weight: 800; color: #fff;
+      overflow: hidden; white-space: nowrap;
+    }
+    .co-seg.preset { background: linear-gradient(180deg, rgba(129,140,248,.62), rgba(129,140,248,.4));
+      border-right: 2px solid rgba(10,6,16,.5); }
+    .co-seg.added { background: linear-gradient(180deg, rgba(168,85,247,.9), rgba(168,85,247,.62));
+      animation: co-grow .34s cubic-bezier(.2,.8,.2,1); transform-origin: left; }
+    .co-seg.over { transform-origin: left; animation: co-grow .34s cubic-bezier(.2,.8,.2,1);
+      background: repeating-linear-gradient(45deg, rgba(244,63,94,.85) 0 6px, rgba(225,29,72,.6) 6px 12px); }
+    @keyframes co-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .co-slot {
+      position: absolute; top: 0; bottom: 0;
+      border: 1.5px dashed rgba(168,85,247,.5); border-left: none; border-radius: 0 12px 12px 0;
+      background: repeating-linear-gradient(45deg, transparent 0 7px, rgba(168,85,247,.09) 7px 14px);
+    }
+    .co-target {
+      position: absolute; top: -6px; bottom: -6px; width: 0; z-index: 4; pointer-events: none;
+      border-left: 2px dashed var(--lk-violet);
+    }
+    .co-target::after {
+      content: "целое = 1"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+      font-family: var(--lk-mono); font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      color: var(--lk-violet); white-space: nowrap;
+    }
+    .co-hint { font-family: var(--lk-mono); font-size: 12px; color: var(--lk-muted);
+      text-align: center; margin: 16px 0 13px; }
+    .co-tiles { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; }
+    .co-tile {
+      display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+      padding: 11px 15px; font-weight: 700; font-size: 17px;
+      background: var(--lk-surface); border: 1.5px solid var(--lk-line);
+      border-radius: var(--lk-r-md); transition: border-color .15s, transform .1s;
+    }
+    .co-tile:active { transform: scale(.96); }
+    .co-tile:hover { border-color: var(--lk-indigo); }
+    .co-tile.is-pick { border-color: var(--lk-violet); background: rgba(168,85,247,.16);
+      box-shadow: 0 0 0 1px var(--lk-violet); }
+
+    /* ─── Механика «дуэль» (duel) ─── */
+    .duel { display: flex; gap: 12px; align-items: stretch; }
+    .duel-card {
+      flex: 1; cursor: pointer; min-height: 120px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--lk-surface); border: 2px solid var(--lk-line);
+      border-radius: var(--lk-r-xl); transition: border-color .15s, transform .1s, box-shadow .2s, background .2s;
+    }
+    .duel-card:active { transform: scale(.98); }
+    .duel-card:not(.is-locked):hover { border-color: var(--lk-indigo); }
+    .duel-card.is-pick { border-color: var(--lk-violet); background: rgba(168,85,247,.14);
+      box-shadow: 0 0 0 2px rgba(168,85,247,.4), 0 0 22px rgba(168,85,247,.4); }
+    .duel-card.is-locked:not(.is-pick) { opacity: .5; cursor: default; }
+    .duel-vs {
+      align-self: center; font-family: var(--lk-mono); font-weight: 800; font-size: 13px;
+      color: var(--lk-muted); flex: 0 0 auto;
+    }
+    .duel-card .frac { font-size: 40px; }
+
+    /* ─── Механика «поймай ошибку» (catch_step) ─── */
+    .cs-steps { display: flex; flex-direction: column; gap: 9px; }
+    .cs-step {
+      display: flex; align-items: center; gap: 13px; cursor: pointer;
+      padding: 14px 16px; font-family: var(--lk-mono); font-size: 17px; font-weight: 600;
+      background: var(--lk-surface); border: 1.5px solid var(--lk-line); border-radius: var(--lk-r-lg);
+      transition: border-color .15s, background .15s;
+    }
+    .cs-step:not(.is-locked):hover { border-color: var(--lk-indigo); }
+    .cs-step.is-pick { border-color: var(--lk-violet); background: rgba(168,85,247,.14);
+      box-shadow: 0 0 0 1px var(--lk-violet); }
+    .cs-step.is-locked:not(.is-pick) { opacity: .5; cursor: default; }
+    .cs-num {
+      flex: 0 0 28px; width: 28px; height: 28px; border-radius: 8px;
+      display: grid; place-items: center; font-size: 13px; font-weight: 800;
+      background: rgba(168,85,247,.14); color: var(--lk-violet); border: 1px solid var(--lk-line);
+    }
+    .cs-step.is-pick .cs-num { background: var(--lk-violet); color: #fff; }
+    .cs-noerr { font-family: inherit; font-weight: 700; color: var(--lk-muted); justify-content: center; }
+    .cs-noerr .cs-num { display: none; }
+
+    /* ─── Механика «лови абсурд» (catch_absurd) ─── */
+    .chips { display: flex; flex-wrap: wrap; gap: 11px; }
+    .chip {
+      flex: 1 1 calc(50% - 11px); cursor: pointer; text-align: center;
+      padding: 18px 12px; font-size: 20px; font-weight: 800; font-family: var(--lk-mono);
+      background: var(--lk-surface); border: 1.5px solid var(--lk-line); border-radius: var(--lk-r-lg);
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .chip:active { transform: scale(.97); }
+    .chip:not(.is-locked):hover { border-color: var(--lk-indigo); }
+    .chip.is-pick { border-color: var(--lk-violet); background: rgba(168,85,247,.16);
+      box-shadow: 0 0 0 1px var(--lk-violet); }
+
+    /* ─── Механика «впиши ответ» (input) ─── */
+    .inp-expr { display: flex; justify-content: center; margin: 4px 0 22px; }
+    .frac-lg { font-size: 34px; }
+    .frac-lg .fn { border-bottom-width: 2px; padding: 0 10px 4px; }
+    .frac-lg .fd { padding: 4px 10px 0; }
+    .inp-row { display: flex; justify-content: center; }
+    .inp-field {
+      width: 190px; text-align: center; font-family: var(--lk-mono); font-size: 22px; font-weight: 800;
+      color: var(--lk-ink); background: rgba(255,255,255,.05);
+      border: 1.5px solid var(--lk-line); border-radius: var(--lk-r-md); padding: 14px 16px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .inp-field::placeholder { color: var(--lk-muted); font-weight: 600; }
+    .inp-field:focus { border-color: var(--lk-violet); box-shadow: 0 0 0 1px var(--lk-violet); }
+
+    /* ─── Поле-объяснялка (reflect) ─── */
+    .reflect {
+      margin-top: 18px; padding: 16px; border-radius: var(--lk-r-xl);
+      background: rgba(79,70,229,.09); border: 1px solid rgba(79,70,229,.22);
+      animation: lk-in .35s ease;
+    }
+    .reflect .rh { font-size: 13px; color: var(--lk-violet); font-weight: 800; margin-bottom: 10px; }
+    .reflect .rs { font-size: 16px; line-height: 1.5; color: var(--lk-ink); margin-bottom: 12px; font-weight: 600; }
+    .reflect input {
+      width: 100%; background: rgba(255,255,255,.05); color: var(--lk-ink);
+      border: 1.5px solid var(--lk-line); border-radius: var(--lk-r-md);
+      padding: 13px 14px; font-size: 16px; font-family: inherit; outline: none;
+    }
+    .reflect input:focus { border-color: var(--lk-violet); }
+
+    .next-btn { width: 100%; margin-top: 20px; }
+    .next-btn:disabled { opacity: .38; cursor: default; transform: none !important; box-shadow: none !important; }
+
+    /* ─── Дроби / маркап ─── */
+    .frac { display: inline-flex; flex-direction: column; align-items: center;
+      font-family: var(--lk-mono); vertical-align: middle; line-height: 1.05; margin: 0 2px; }
+    .frac .fn { border-bottom: 1.5px solid currentColor; padding: 0 5px 2px; }
+    .frac .fd { padding: 2px 5px 0; }
+    .lk-mono { font-family: var(--lk-mono); }
+
+    /* ─── Экран профиля (итог, не балл) ─── */
+    #profile { display: none; margin-top: 6px; }
+    #profile.show { display: block; animation: lk-in .5s ease; }
+    .pf-legend { display: flex; gap: 16px; font-size: 12px; color: var(--lk-muted); margin: 4px 0 16px; flex-wrap: wrap; }
+    .pf-legend span { display: flex; align-items: center; gap: 6px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 12px; display: inline-block; }
+    .dot.ok { background: var(--lk-ok); box-shadow: 0 0 10px var(--lk-ok); }
+    .dot.warn { background: #818cf8; box-shadow: 0 0 10px #818cf8; }
+    .dot.gap { background: var(--lk-bad); box-shadow: 0 0 10px var(--lk-bad); }
+    .pf-map { display: grid; gap: 9px; margin-bottom: 18px; }
+    .pf-theme { display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+      background: var(--lk-surface); border: 1px solid var(--lk-line); border-radius: var(--lk-r-lg); }
+    .pf-theme .nm { font-weight: 700; font-size: 15px; flex: 1; }
+    .pf-theme .st { font-size: 12px; color: var(--lk-muted); font-family: var(--lk-mono); }
+    .pf-theme.tap { cursor: pointer; transition: border-color .15s, background .15s; }
+    .pf-theme.tap:hover { border-color: var(--lk-indigo); }
+    .pf-theme .caret { flex: 0 0 auto; color: var(--lk-muted); font-size: 13px; transition: transform .2s; }
+    .pf-theme.open .caret { transform: rotate(90deg); }
+
+    /* раскрываемый разбор станции */
+    .pf-rev { display: none; margin: -4px 0 9px; padding: 4px 2px 2px; }
+    .pf-rev.open { display: block; animation: lk-in .25s ease; }
+    .rv-card { padding: 15px 16px; margin-bottom: 9px; border-radius: var(--lk-r-lg);
+      background: var(--lk-surface); border: 1px solid var(--lk-line); }
+    .rv-q { font-size: 14.5px; line-height: 1.4; font-weight: 700; color: var(--lk-ink); margin: 0 0 11px; }
+    .rv-q .lk-hl { color: var(--lk-violet); }
+    .rv-list { display: flex; flex-direction: column; gap: 7px; }
+    .rv-opt { display: flex; align-items: center; gap: 9px; font-size: 14.5px; line-height: 1.35;
+      padding: 9px 11px; border-radius: var(--lk-r-md); border: 1px solid var(--lk-line);
+      background: rgba(255,255,255,.02); }
+    .rv-opt .mk { flex: 0 0 auto; font-size: 14px; }
+    .rv-opt.ok { border-color: rgba(52,211,153,.55); background: rgba(52,211,153,.08); }
+    .rv-opt.bad { border-color: rgba(244,63,94,.5); background: rgba(244,63,94,.08); }
+    .rv-opt.pick { border-color: var(--lk-violet); background: rgba(168,85,247,.1); }
+    .rv-opt.pick .rv-tag { color: var(--lk-violet); }
+    .rv-tag { margin-left: auto; flex: 0 0 auto; font-family: var(--lk-mono); font-size: 11px;
+      font-weight: 700; letter-spacing: .04em; color: var(--lk-muted); white-space: nowrap; }
+    .rv-opt.ok .rv-tag { color: var(--lk-ok); }
+    .rv-opt.bad .rv-tag { color: var(--lk-bad); }
+    .rv-note { font-size: 13px; line-height: 1.45; color: var(--lk-muted); margin: 9px 0 0; }
+    .rv-note b { color: var(--lk-ink); }
+    .pf-card { padding: 18px; margin-bottom: 13px; font-size: 16px; line-height: 1.5; }
+    .pf-card b { color: var(--lk-violet); }
+    .pf-diag { list-style: none; padding: 0; margin: 8px 0 0; }
+    .pf-diag li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px;
+      line-height: 1.5; padding: 9px 0; border-top: 1px solid var(--lk-line); }
+    .pf-diag li:first-child { border-top: none; }
+    .pf-diag li::before { content: "🎯"; flex: 0 0 auto; }
+    .pf-st { font-weight: 700; color: var(--lk-ink); }
+    .pf-close { margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--lk-line);
+      font-size: 14.5px; font-weight: 600; color: var(--lk-violet); }
+    .cta-btn { width: 100%; margin-top: 8px; }
+    .pf-note { font-size: 12px; color: var(--lk-muted); text-align: center; margin-top: 16px; opacity: .8; }
+
+    @media (max-width: 380px) {
+      .cond { font-size: 19px; }
+      .duel-card .frac { font-size: 32px; }
+      .chip { font-size: 17px; }
+    }
+  </style>
+</head>
+<body class="lk-page">
+
+  <!-- Слой микро-дофамин вспышек фона-ромбов (под контентом, над фоном) -->
+  <div class="lk-flash lk-flash-correct" id="lk-fx-ok"></div>
+
+  <!-- Звук бум-эффекта (по URL из бренд-кита). Тест «молчит» — на ВСЕ кнопки даём
+       только реакцию «верно»: ученик не должен палить ошибку до финала. -->
+  <audio id="snd-win" src="https://dmitrydruzhkovv-arch.github.io/di-brand-kit/sounds/win.mp3?v=2" preload="auto"></audio>
+
+  <header class="hw-header" id="hw-header">
+    <div class="hw-header-inner">
+      <span class="hw-prog-label" id="prog-label">1 из 9</span>
+      <div class="lk-progress"><div class="lk-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+  </header>
+
+  <div class="lk-app" style="padding-top:22px">
+    <!-- одна карточка задания на экран -->
+    <div id="screen"></div>
+    <!-- профиль (итог) -->
+    <div id="profile"></div>
+  </div>
+
+  <script src="app.js?v=7"></script>
+</body>
+</html>
