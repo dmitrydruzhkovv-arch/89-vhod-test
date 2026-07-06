@@ -57,12 +57,20 @@ function fracSum(list) {
   const g = gcd(n, d); return [n / g, d / g];
 }
 
+// Локальный ISO без пояса: YYYY-MM-DDTHH:MM:SS (для показа «когда начал»).
+function localIso(d) {
+  const p = x => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 /* ── ОТЧЁТ (#38) ─────────────────────────────────────────────────────────── */
 const HW_ENDPOINT = 'https://194-87-110-53.nip.io/hw-result';
 // Именной режим: ?u=ник → отчёт привязан к ученику (Лиза). Без ?u= — анонимный код (лид с Авито).
 const NAMED_TOKEN = (new URLSearchParams(location.search).get('u') || '').slice(0, 40);
 const LEAD_CODE = NAMED_TOKEN || Math.random().toString(36).slice(2, 6).toUpperCase();
 let reported = false;
+let startTs = null;    // отметка начала для показа (Date)
+let startPerf = null;  // performance.now() для честной длительности (не зависит от часов/пояса)
 
 function reportResults() {
   if (reported) return;
@@ -80,10 +88,13 @@ function reportResults() {
     return { n: i + 1, id: t.id, theme: t.station, cond: t.cond, ok: !!a.ok,
              diag: a.diag || '', pick: a.pick, reflect: a.reflect || '' };
   });
+  // Длительность — по performance.now() (честно, не зависит от часов/пояса). started_at — локальный ISO для показа.
+  const durationSec = startPerf != null ? Math.round((performance.now() - startPerf) / 1000) : null;
+  const startedAt = startTs ? localIso(startTs) : null;
   try {
     fetch(HW_ENDPOINT, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: LEAD_CODE, hw: 'Входной тест ОГЭ 8→9', hw_id: '89-vhod-test', score, total: tasks.length, errors, detail }),
+      body: JSON.stringify({ token: LEAD_CODE, hw: 'Входной тест ОГЭ 8→9', hw_id: '89-vhod-test', score, total: tasks.length, errors, detail, started_at: startedAt, duration_sec: durationSec }),
       keepalive: true
     }).catch(() => {});
   } catch (e) {}
@@ -113,6 +124,7 @@ if (REVIEW_TOKEN) {
 /* ── РЕНДЕР КАРТОЧКИ ──────────────────────────────────────────────────────── */
 function render() {
   if (idx >= DATA.tasks.length) return showProfile();
+  if (!startTs) { startTs = new Date(); startPerf = performance.now(); }   // засекаем старт на первом задании
   const t = DATA.tasks[idx];
   const n = DATA.tasks.length;
 
