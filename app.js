@@ -534,11 +534,19 @@ function showProfile() {
   const kicker = REVIEW_MODE ? `Разбор ученика · для репетитора` : `Твоя карта`;
   const h1 = REVIEW_MODE ? 'Как прошёл ученик' : 'Вот где ты сейчас';
 
-  // Крупные цифры результата — дробью и в процентах.
+  // Результат — три плашки со смыслом: верно · мимо · точность. Крупные цифры, свой цвет.
+  const wrong = n - total;
+  const tile = (num, label, col, glow) => `
+    <div class="pf-tile" style="flex:1;min-width:0;text-align:center;padding:16px 8px;border-radius:16px;
+         background:${col.bg};border:1px solid ${col.br};box-shadow:${glow}">
+      <div style="font-size:44px;font-weight:800;line-height:1;color:${col.fg}">${num}</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;opacity:.7">${label}</div>
+    </div>`;
   const scoreBlock = `
-    <div class="pf-score" style="display:flex;align-items:baseline;gap:14px;margin:2px 0 16px">
-      <span style="font-size:52px;font-weight:800;line-height:1"><b>${total}</b><span style="opacity:.45;font-size:34px"> / ${n}</span></span>
-      <span style="font-size:26px;font-weight:700;opacity:.8">${pct}%</span>
+    <div class="pf-score" style="display:flex;gap:10px;margin:4px 0 18px">
+      ${tile(total, 'верно', {bg:'rgba(52,211,153,.10)', br:'rgba(52,211,153,.28)', fg:'var(--lk-ok,#34d399)'}, '0 0 22px rgba(52,211,153,.14)')}
+      ${tile(wrong, 'мимо', {bg:'rgba(244,63,94,.09)', br:'rgba(244,63,94,.26)', fg:'var(--lk-bad,#f43f5e)'}, '0 0 22px rgba(244,63,94,.12)')}
+      ${tile(pct + '<span style="font-size:24px;opacity:.7">%</span>', 'точность', {bg:'rgba(168,85,247,.12)', br:'rgba(168,85,247,.32)', fg:'var(--lk-violet,#a855f7)'}, '0 0 24px rgba(168,85,247,.20)')}
     </div>`;
 
   // CTA зависит от режима: репетитор смотрит разбор / ученик шлёт результат / аноним-лид на пробное.
@@ -572,7 +580,7 @@ function showProfile() {
     ${ctaBlock}
     <div class="lk-sign" style="margin-top:22px;justify-content:center">
       <span class="lk-badge lk-badge-l">Λ</span>
-      <span class="lk-badge lk-badge-di">Di</span>
+      <span class="lk-badge lk-badge-d">D.</span>
     </div>
     <div style="height:28px"></div>`;
   pf.classList.add('show');
