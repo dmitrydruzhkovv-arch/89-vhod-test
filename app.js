@@ -466,7 +466,7 @@ function showServerReview(token) {
 function showProfile() {
   document.getElementById('hw-header').hidden = true;
   screen().hidden = true;
-  if (NAMED_TOKEN && !REVIEW_MODE) reportResults();   // именной ученик — отчёт уходит сам на финале (но не в режиме разбора)
+  // Отчёт НЕ уходит сам — только по кнопке «Отправить результат репетитору» (ниже).
 
   const tasks = DATA.tasks, n = tasks.length, stations = DATA.stationsOrder;
   const isOk = id => !!(answers[id] && answers[id].ok);
@@ -530,17 +530,37 @@ function showProfile() {
       <p style="margin:10px 0 0;font-size:15px;line-height:1.5">Явных дыр на входе нет — на пробном берём темп выше и целимся в верхние баллы.</p>
     </div>`;
 
-  const kicker = REVIEW_MODE ? `Разбор ученика · для репетитора · ${total} из ${n}` : `Твоя карта · ${total} из ${n}`;
+  const pct = n ? Math.round(total / n * 100) : 0;
+  const kicker = REVIEW_MODE ? `Разбор ученика · для репетитора` : `Твоя карта`;
   const h1 = REVIEW_MODE ? 'Как прошёл ученик' : 'Вот где ты сейчас';
-  const ctaBlock = REVIEW_MODE ? `<div class="pf-note" style="margin-top:14px">Тапни по теме — раскроется каждое задание с выбором ученика и верным ответом.</div>`
-    : `<button class="lk-btn cta-btn" id="cta">${DATA.cta.label}</button>
-       ${DATA.cta.note ? `<div class="pf-note" style="margin-top:10px">${DATA.cta.note}</div>` : ''}
-       <div class="pf-note">Тест не хранит твои личные данные — только анонимный код и результат.</div>`;
+
+  // Крупные цифры результата — дробью и в процентах.
+  const scoreBlock = `
+    <div class="pf-score" style="display:flex;align-items:baseline;gap:14px;margin:2px 0 16px">
+      <span style="font-size:52px;font-weight:800;line-height:1"><b>${total}</b><span style="opacity:.45;font-size:34px"> / ${n}</span></span>
+      <span style="font-size:26px;font-weight:700;opacity:.8">${pct}%</span>
+    </div>`;
+
+  // CTA зависит от режима: репетитор смотрит разбор / ученик шлёт результат / аноним-лид на пробное.
+  let ctaBlock;
+  if (REVIEW_MODE) {
+    ctaBlock = `<div class="pf-note" style="margin-top:14px">Тапни по теме — раскроется каждое задание с выбором ученика и верным ответом.</div>`;
+  } else if (NAMED_TOKEN) {
+    ctaBlock = `
+      <button class="lk-btn cta-btn" id="send-btn">📨 Отправить результат репетитору</button>
+      <div class="pf-note" id="send-note" style="margin-top:10px">Нажми — репетитор получит твой разбор: где крепко, а где подтянуть.</div>`;
+  } else {
+    ctaBlock = `
+      <button class="lk-btn cta-btn" id="cta">${DATA.cta.label}</button>
+      ${DATA.cta.note ? `<div class="pf-note" style="margin-top:10px">${DATA.cta.note}</div>` : ''}
+      <div class="pf-note">Тест не хранит твои личные данные — только анонимный код и результат.</div>`;
+  }
 
   const pf = document.getElementById('profile');
   pf.innerHTML = `
-    <div class="lk-kicker" style="margin-bottom:10px">${kicker}</div>
-    <h1 class="lk-h1 lk-glow" style="margin:0 0 14px">${h1}</h1>
+    <div class="lk-kicker" style="margin-bottom:6px">${kicker}</div>
+    <h1 class="lk-h1 lk-glow" style="margin:0 0 6px">${h1}</h1>
+    ${scoreBlock}
     <div class="pf-legend">
       <span><span class="dot ok"></span>крепко</span>
       <span><span class="dot warn"></span>шатко</span>
@@ -565,6 +585,17 @@ function showProfile() {
     if (rev) rev.classList.toggle('open');
   }));
 
+  // Именной ученик: кнопка «Отправить результат репетитору» → POST отчёта + подтверждение.
+  const sendBtn = document.getElementById('send-btn');
+  if (sendBtn) sendBtn.addEventListener('click', () => {
+    reportResults();
+    sendBtn.disabled = true;
+    sendBtn.textContent = '✅ Отправлено репетитору';
+    const note = document.getElementById('send-note');
+    if (note) note.textContent = 'Готово — репетитор увидит твой разбор.';
+  });
+
+  // Аноним-лид: старый маркетинговый CTA на пробное (чат ВК).
   const ctaBtn = document.getElementById('cta');
   if (ctaBtn) ctaBtn.addEventListener('click', () => { reportResults(); window.open(DATA.cta.url, '_blank'); });
 }
