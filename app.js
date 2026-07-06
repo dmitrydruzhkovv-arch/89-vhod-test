@@ -516,18 +516,18 @@ function showProfile() {
     </div>
     <div class="pf-rev" data-rev="${si}">${(tasksByStation[s] || []).map(renderReview).join('')}</div>`).join('');
 
-  // Карточка B — «Что закрываем летом» (пик экрана): диагнозы без дублей карты.
+  // Карточка B — «Что подтянуть» (пик экрана): диагнозы без дублей карты. Без сезонной привязки.
   const shownDiags = diags.slice(0, 4);
   const summerHtml = shownDiags.length ? `
     <div class="lk-card pf-card">
-      <b>Что закрываем летом</b>
+      <b>Что подтянуть</b>
       <ul class="pf-diag">${shownDiags.map(d => `<li><span><span class="pf-st">${d.st}</span> — ${d.diag}</span></li>`).join('')}</ul>
-      ${diags.length > shownDiags.length ? `<div class="pf-note" style="text-align:left;margin:8px 0 0">…и пара мелочей — разберём на пробном.</div>` : ''}
-      <div class="pf-close">Это закрывается за лето, по шагам.</div>
+      ${diags.length > shownDiags.length ? `<div class="pf-note" style="text-align:left;margin:8px 0 0">…и пара мелочей — разберём на занятии.</div>` : ''}
+      <div class="pf-close">Это закрывается по шагам, тема за темой.</div>
     </div>` : `
     <div class="lk-card pf-card">
       <b>Что дальше</b>
-      <p style="margin:10px 0 0;font-size:15px;line-height:1.5">Явных дыр на входе нет — на пробном берём темп выше и целимся в верхние баллы.</p>
+      <p style="margin:10px 0 0;font-size:15px;line-height:1.5">Явных дыр на входе нет — берём темп выше и целимся в верхние баллы.</p>
     </div>`;
 
   const pct = n ? Math.round(total / n * 100) : 0;
