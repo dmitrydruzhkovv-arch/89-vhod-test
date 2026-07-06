@@ -76,7 +76,9 @@ function reportResults() {
     .filter(Boolean);
   const detail = tasks.map((t, i) => {
     const a = answers[t.id] || {};
-    return { n: i + 1, theme: t.station, cond: t.cond, ok: !!a.ok, diag: a.diag || '' };
+    // id + pick + reflect — чтобы разбор (?r=) воссоздал финальный экран с выбором ученика.
+    return { n: i + 1, id: t.id, theme: t.station, cond: t.cond, ok: !!a.ok,
+             diag: a.diag || '', pick: a.pick, reflect: a.reflect || '' };
   });
   try {
     fetch(HW_ENDPOINT, {
@@ -98,6 +100,7 @@ const screen = () => document.getElementById('screen');
 /* ── ЗАГРУЗКА ─────────────────────────────────────────────────────────────── */
 // Режим разбора: ?r=токен → не тест, а просмотр ответов ученика с сервера (для репетитора).
 const REVIEW_TOKEN = (new URLSearchParams(location.search).get('r') || '').slice(0, 40);
+let REVIEW_MODE = false;   // true = экран разбора для репетитора (не проход ученика)
 if (REVIEW_TOKEN) {
   showServerReview(REVIEW_TOKEN);
 } else {
@@ -416,7 +419,8 @@ function renderReview(t) {
 }
 
 /* ── РАЗБОР ДЛЯ РЕПЕТИТОРА (?r=токен) ──────────────────────────────────────── */
-// Тянем сохранённый результат ученика с сервера и показываем ответы по каждому заданию.
+// Воссоздаём ТОТ ЖЕ финальный экран, что видел ученик: тянем его выбор (pick) с сервера,
+// собираем answers[] и зовём настоящий showProfile() — кликабельно, с её выбором и верным.
 function showServerReview(token) {
   document.getElementById('hw-header').hidden = true;
   screen().hidden = true;
@@ -424,47 +428,45 @@ function showServerReview(token) {
   pf.innerHTML = '<p style="padding:30px;text-align:center;opacity:.7">Загружаю разбор…</p>';
   pf.classList.add('show');
 
-  fetch(`${HW_ENDPOINT}?r=${encodeURIComponent(token)}`)
-    .then(r => r.ok ? r.json() : Promise.reject(r.status))
-    .then(d => {
-      if (!d.ok || !Array.isArray(d.detail)) return Promise.reject('empty');
-      const det = d.detail;
-      const pct = d.total ? Math.round(d.score / d.total * 100) : 0;
-      const mark = d.total && d.score === d.total ? '🟢' : (pct >= 60 ? '🟡' : '🔴');
-      const rows = det.map(q => {
-        const ok = !!q.ok;
-        const diag = q.diag ? `<div class="rev-diag" style="margin-top:8px;font-size:13px;line-height:1.6;color:var(--lk-ink-soft,#9aa)">${fmtInline(q.diag)}</div>` : '';
-        return `
-          <div class="lk-card" style="padding:14px 16px;margin-bottom:10px;border-left:3px solid ${ok ? 'var(--lk-ok,#22c55e)' : 'var(--lk-bad,#f43f5e)'}">
-            <div style="display:flex;gap:8px;align-items:baseline">
-              <span>${ok ? '✅' : '❌'}</span>
-              <b style="font-size:13px;opacity:.65">№${q.n} · ${q.theme || ''}</b>
-            </div>
-            <div style="margin-top:6px;font-size:15px;line-height:1.5">${fmtInline(q.cond || '')}</div>
-            ${diag}
-          </div>`;
-      }).join('');
-      pf.innerHTML = `
-        <div class="lk-kicker" style="margin-bottom:8px">Разбор ученика · только для репетитора</div>
-        <h1 class="lk-h1" style="margin:0 0 6px">${mark} ${d.score} из ${d.total}</h1>
-        <p style="margin:0 0 16px;opacity:.7;font-size:14px">Ниже — как ученик прошёл каждое задание. ❌ — ошибся, с разбором почему.</p>
-        ${rows}
-        <div style="height:28px"></div>`;
-      window.scrollTo(0, 0);
+  const showErr = msg => {
+    pf.innerHTML = `<div class="lk-card" style="padding:22px;margin-top:30px"><p style="font-size:15px;line-height:1.5">${msg}</p></div>`;
+  };
+
+  Promise.all([
+    fetch(`${HW_ENDPOINT}?r=${encodeURIComponent(token)}`).then(r => r.ok ? r.json() : Promise.reject(r.status)),
+    fetch('data.json?v=7').then(r => r.json()),
+  ])
+    .then(([res, data]) => {
+      if (!res.ok || !Array.isArray(res.detail)) return Promise.reject('empty');
+      DATA = data;
+      // Восстанавливаем состояние ответов ученика по id задания.
+      res.detail.forEach(q => {
+        if (!q.id) return;
+        const t = DATA.tasks.find(x => x.id === q.id);
+        answers[q.id] = {
+          ok: !!q.ok,
+          diag: q.ok ? null : (q.diag || (t && t.diag) || ''),
+          station: q.theme || (t && t.station) || '',
+          kind: t ? t.kind : '',
+          pick: q.pick,
+          reflect: q.reflect || '',
+        };
+      });
+      REVIEW_MODE = true;
+      showProfile();   // тот же экран, что видел ученик, — с его выбором по каждому заданию
     })
-    .catch(err => {
-      const msg = err === 404
-        ? 'По этой ссылке результата пока нет — ученик ещё не прошёл тест до конца.'
-        : 'Не удалось загрузить разбор. Попробуй обновить страницу.';
-      pf.innerHTML = `<div class="lk-card" style="padding:22px;margin-top:30px"><p style="font-size:15px;line-height:1.5">${msg}</p></div>`;
-    });
+    .catch(err => showErr(err === 404
+      ? 'По этой ссылке результата пока нет — ученик ещё не прошёл тест до конца.'
+      : (err === 'empty'
+          ? 'Разбор для этой ссылки не сохранён (старый заход без деталей). Пусть ученик пройдёт тест ещё раз — новый разбор будет полным.'
+          : 'Не удалось загрузить разбор. Попробуй обновить страницу.')));
 }
 
 /* ── ПРОФИЛЬ (итог, не балл) ──────────────────────────────────────────────── */
 function showProfile() {
   document.getElementById('hw-header').hidden = true;
   screen().hidden = true;
-  if (NAMED_TOKEN) reportResults();   // именной ученик — отчёт уходит сам на финале, не ждём CTA
+  if (NAMED_TOKEN && !REVIEW_MODE) reportResults();   // именной ученик — отчёт уходит сам на финале (но не в режиме разбора)
 
   const tasks = DATA.tasks, n = tasks.length, stations = DATA.stationsOrder;
   const isOk = id => !!(answers[id] && answers[id].ok);
@@ -528,10 +530,17 @@ function showProfile() {
       <p style="margin:10px 0 0;font-size:15px;line-height:1.5">Явных дыр на входе нет — на пробном берём темп выше и целимся в верхние баллы.</p>
     </div>`;
 
+  const kicker = REVIEW_MODE ? `Разбор ученика · для репетитора · ${total} из ${n}` : `Твоя карта · ${total} из ${n}`;
+  const h1 = REVIEW_MODE ? 'Как прошёл ученик' : 'Вот где ты сейчас';
+  const ctaBlock = REVIEW_MODE ? `<div class="pf-note" style="margin-top:14px">Тапни по теме — раскроется каждое задание с выбором ученика и верным ответом.</div>`
+    : `<button class="lk-btn cta-btn" id="cta">${DATA.cta.label}</button>
+       ${DATA.cta.note ? `<div class="pf-note" style="margin-top:10px">${DATA.cta.note}</div>` : ''}
+       <div class="pf-note">Тест не хранит твои личные данные — только анонимный код и результат.</div>`;
+
   const pf = document.getElementById('profile');
   pf.innerHTML = `
-    <div class="lk-kicker" style="margin-bottom:10px">Твоя карта · ${total} из ${n}</div>
-    <h1 class="lk-h1 lk-glow" style="margin:0 0 14px">Вот где ты сейчас</h1>
+    <div class="lk-kicker" style="margin-bottom:10px">${kicker}</div>
+    <h1 class="lk-h1 lk-glow" style="margin:0 0 14px">${h1}</h1>
     <div class="pf-legend">
       <span><span class="dot ok"></span>крепко</span>
       <span><span class="dot warn"></span>шатко</span>
@@ -540,9 +549,7 @@ function showProfile() {
     <div class="pf-map">${mapHtml}</div>
     <div class="lk-card pf-card">${verdictPara}</div>
     ${summerHtml}
-    <button class="lk-btn cta-btn" id="cta">${DATA.cta.label}</button>
-    ${DATA.cta.note ? `<div class="pf-note" style="margin-top:10px">${DATA.cta.note}</div>` : ''}
-    <div class="pf-note">Тест не хранит твои личные данные — только анонимный код и результат.</div>
+    ${ctaBlock}
     <div class="lk-sign" style="margin-top:22px;justify-content:center">
       <span class="lk-badge lk-badge-l">Λ</span>
       <span class="lk-badge lk-badge-di">Di</span>
@@ -558,5 +565,6 @@ function showProfile() {
     if (rev) rev.classList.toggle('open');
   }));
 
-  document.getElementById('cta').addEventListener('click', () => { reportResults(); window.open(DATA.cta.url, '_blank'); });
+  const ctaBtn = document.getElementById('cta');
+  if (ctaBtn) ctaBtn.addEventListener('click', () => { reportResults(); window.open(DATA.cta.url, '_blank'); });
 }
